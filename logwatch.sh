@@ -1,11 +1,20 @@
 #!/bin/sh
-#set -x 
+set -x 
 
-# rename to settings
-. /root/spcp.smtp
+CONFIG_DIR=$HOME/.config/proxy
+
+if [ ! -d $CONFIG_DIR ];then
+	mkdir -p $CONFIG_DIR
+	if [ ! -s $CONFIG_DIR/smtp.conf ]; then
+		echo "Missing SMTP configuration"
+		exit
+	fi
+else
+. $CONFIG_DIR/smtp.conf
+fi
 
 ACCESS_LOG="/var/log/squid/access.log"
-BLACKLIST="/root/keywords"
+BLACKLIST="$CONFIG_DIR/blacklist"
 REPORT_MAIL="/tmp/report_mail"
 
 pull() {
@@ -27,7 +36,13 @@ report() {
 	--body-plain=$REPORT_MAIL
 }
 
-i=`cat $BLACKLIST | wc -l`
+if [ -s $BLACKLIST ]; then
+	i=`cat $BLACKLIST | sed '/^#/d' |  wc -l`
+else
+	echo "Blacklist empty"
+	exit
+fi
+
 if [ -s $ACCESS_LOG ]; then
 	while [ "$i" -gt "0" ]; do
 			x=0
@@ -54,7 +69,7 @@ if [ -s $ACCESS_LOG ]; then
   	i=`expr $i - 1`
 	done
 fi 
-# Rotate the logs, needs cleanup for older logs, too.
+
 if [ -s $REPORT_MAIL ]; then
 	rm $REPORT_MAIL
 	echo "Rotating logs"
