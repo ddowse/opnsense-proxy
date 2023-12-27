@@ -1,9 +1,8 @@
-# monitor.py
+# monitor.py (c) 2023 Daniel Dowse
 
 import json
 import time
 import re
-
 
 # Follow the logfile like tail -f.
 def follow(f):
@@ -30,7 +29,7 @@ def search(url_path, word):
 #    print("DEBUG: search() Blacklist (word):", (word.strip()))
 #    print("DEBUG: search() RegEx:", re.search(word.strip(), url_path))
      return re.search(word.strip(), url_path)
-
+	
 if __name__ == '__main__':
     with open("/var/log/squid/access.log", "r") as logfile:
         while True:
@@ -46,3 +45,5 @@ if __name__ == '__main__':
                     query = search(path,x)
                     if query is not None:
                       print("Match was", query.group())
+
+# vim: ts=4 sts=4 sw=4 tw=79 expandtab autoindent fileformat=unix
