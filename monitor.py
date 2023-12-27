@@ -5,6 +5,9 @@ import time
 import re
 import sys
 import os
+import mail
+
+matches = []
 
 # Follow the logfile like tail -f.
 def follow(f):
@@ -17,7 +20,7 @@ def follow(f):
         yield line
 
 
-# Load keywords from file
+# Load keywords from file f
 def load_bl(f):
     if os.path.exists(f):
         with open(f, "r") as blacklist:
@@ -29,9 +32,26 @@ def load_bl(f):
             blacklist.write("")
             load_bl(f)
 
+# Find match in url_path for word
 def search(url_path, word):
      return re.search(word.strip(), url_path)
 
+# Append to list until limit reached
+def limit(l,data,query):
+     if len(matches) < l:
+            data["query"] = query
+            matches.append(data)
+     else:
+        rows = []
+        # Send mail and flush list
+        report = json.loads(json.dumps(matches))
+        for k in report:
+            row = k.get('timestamp'), "Matchword was", '"', k.get('query'), '"', "from", k.get('Hostname'), "MAC:", k.get('MAC') 
+            rows.append(' '.join(row))
+        
+        mail.text = '\n'.join(rows)
+        mail.send()
+        del matches[:]
 
 if __name__ == '__main__':
     with open("/var/log/squid/access.log", "r") as logfile:
@@ -39,17 +59,22 @@ if __name__ == '__main__':
             loglines = follow(logfile)
             with open("/var/log/monitor.log","a") as monitorlog:
                 for line in loglines:
+                    # Load the latest line
                     data = json.loads(line)
-                    #print("DEBUG: main() type(data)", type(data))
-                    #print("DEBUG: Raw data:", data)
                     path = data.get('Path')
-                    #path = data.get('Path').split('&')
+                    # Execute the blacklist function
                     words = load_bl("/usr/local/etc/squid/acl/monitor")
                     for x in words:
+                        # Execute the search function
                         query = search(path,x)
+                        # Did our query return a match?
                         if query is not None:
-                          print(data.get('timestamp'),"Match was", query.group(), "from client:", data.get('Hostname'), file=monitorlog)
-                          if sys.stdout.isatty():
-                            print(data.get('timestamp'),"Match was", query.group(), "from client:", data.get('Hostname'))
+                            # Send every N lines
+                            limit(100,data,query.group())
+                            # Write entry to our logfile
+                            print(data.get('timestamp'),"Match was", query.group(), "from client:", data.get('Hostname'), file=monitorlog)
+                            # Output to tty if run in terminal 
+                            if sys.stdout.isatty():
+                              print(data.get('timestamp'),"Match was", query.group(), "from client:", data.get('Hostname'))
 
 # vim: ts=4 sts=4 sw=4 tw=79 expandtab autoindent fileformat=unix
