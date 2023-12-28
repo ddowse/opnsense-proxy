@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # monitor.py (c) 2023 Daniel Dowse
 
 import json
