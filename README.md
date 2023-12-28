@@ -1,26 +1,47 @@
-## Smart parental control proxy
+# Parental Monitor
 
-This is the repo for the private UpWork Project "Smart parental control proxy".  
+## What is this... 
 
-To create and install your own CA (Certificate Authority) with OPNsense follow  
-the instructions from the offical OPNsense Documentation.  
+This is a tool that reads the ```access.log``` of Squid Proxy continuously.   
+It will check the URL part of each new logline for matching patterns specified   
+in a ACL file and records the match to a local logfile. The logfile with all   
+matches will be send as plain text email to a configurable destination.    
 
-https://docs.opnsense.org/manual/how-tos/proxytransparent.html#step-4-ca-for-transparent-ssl
+## Prepare your OPNsense installation 
 
-Download the CA Certificate and distribute it to your devices. In most cases a "double click"  
-on the File will trigger a import dialog from your OS. 
+### Step 1
+Go and visit the OPNsense Documentation and setup a transparent proxy.
+
+https://docs.opnsense.org/manual/how-tos/proxytransparent.html
+
+### Step 2 
+Download the CA Certificate and distribute it to your devices.   
+In most cases a "double click" on the File will trigger a import dialog from your OS.    
+https://docs.opnsense.org/manual/how-tos/proxytransparent.html#step-4-ca-for-transparent-ssl   
 
 
+## Install this software 
 
-Apply the patch by cloning this repo and cd into it. Then run
+### Step 1
+
+Login to your OPNsense via SSH and clone or download this repo. 
 
 ```
-./patch.sh
-configctl proxy restart
+cd opnsense-proxy
+./install-and-patch.sh
 ```
 
-## Files
+### Step 2
 
-``` /var/log/monitor.log ```
+Add keywords that you want to report on in this file
+
 ``` /usr/local/etc/squid/acl/monitor ```
+
+and restart the service with
+
+``` 
+configctl parental-monitor stop
+configctl parental-monitor start
+```
+
 
