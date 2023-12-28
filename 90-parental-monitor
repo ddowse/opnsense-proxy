@@ -1,0 +1,3 @@
+#!/bin/sh
+#/usr/local/bin/parental-monitor.py
+configctl parental-monitor start
