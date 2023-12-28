@@ -5,9 +5,13 @@ import time
 import re
 import sys
 import os
-import mail
+import smtplib, ssl
+
+# Import config for mailserver
+import config
 
 matches = []
+start = time.time()
 
 # Follow the logfile like tail -f.
 def follow(f):
@@ -25,7 +29,6 @@ def load_bl(f):
     if os.path.exists(f):
         with open(f, "r") as blacklist:
             words = blacklist.readlines()
-            # Return a list of all words found in the file separated by newlines
             return words
     else:
         with open(f,"w") as blacklist:
@@ -36,41 +39,58 @@ def load_bl(f):
 def search(url_path, word):
      return re.search(word.strip(), url_path)
 
-# Append to list until limit reached
-def limit(l,data,query):
-     if len(matches) < l:
-            data["query"] = query
-            matches.append(data)
+# Append to list until timelimit reached
+def report(t,data,query):
+     global start
+     if ( time.time() - start ) < t:
+        data["query"] = query
+        matches.append(data)
      else:
-        rows = []
+        data["query"] = query
+        matches.append(data)
+        report = []
+        rows = json.loads(json.dumps(matches))
+        for k in json.loads(json.dumps(matches)):
+            match = k.get('timestamp'), "Matchword was", '"', k.get('query'), '"', "from", k.get('Hostname'), "MAC:", k.get('MAC') 
+            report.append(' '.join(match))
+        message = '\n'.join(report)
         # Send mail and flush list
-        report = json.loads(json.dumps(matches))
-        for k in report:
-            row = k.get('timestamp'), "Matchword was", '"', k.get('query'), '"', "from", k.get('Hostname'), "MAC:", k.get('MAC') 
-            rows.append(' '.join(row))
-        
-        mail.text = '\n'.join(rows)
-        mail.send()
+        print("Sending Mail:",text)
+        sendmail(config.smtp_server,config.port,config.sender,config.recipient,config.password,message)
+        del report[:]
+
+        # Reset timer and clear list
+        start = time.time()
         del matches[:]
+   
+def sendmail(smtp_server,port,csender,recipient,password,message):
+    context = ssl.create_default_context()
+    with smtplib.SMTP(smtp_server, port) as server:
+        server.starttls(context=context)
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message)
 
 if __name__ == '__main__':
-    with open("/var/log/squid/access.log", "r") as logfile:
+    #with open("/var/log/squid/access.log", "r") as logfile:
+    with open(config.squid_log) as logfile:
         while True:
             loglines = follow(logfile)
-            with open("/var/log/monitor.log","a") as monitorlog:
+            #with open("/var/log/monitor.log","a") as monitorlog:
+            with open(config.monitor_log,"a") as monitorlog:
                 for line in loglines:
                     # Load the latest line
                     data = json.loads(line)
                     path = data.get('Path')
                     # Execute the blacklist function
-                    words = load_bl("/usr/local/etc/squid/acl/monitor")
+                    #words = load_bl("/usr/local/etc/squid/acl/monitor")
+                    words = load_bl(config.acl_file)
                     for x in words:
                         # Execute the search function
                         query = search(path,x)
                         # Did our query return a match?
                         if query is not None:
-                            # Send every N lines
-                            limit(100,data,query.group())
+                            # Check every N seconds for sending report 
+                            report(config.intervall,data,query.group())
                             # Write entry to our logfile
                             print(data.get('timestamp'),"Match was", query.group(), "from client:", data.get('Hostname'), file=monitorlog)
                             # Output to tty if run in terminal 
